@@ -5,3 +5,13 @@ A simple php class to connect/publish/subscribe to an MQTT broker
 
 Documentation: Coming Soon
 Source: http://github.com/bluerhinos/phpMQTT
+
+---
+
+### Differences to original version
+
+* Christoph Hüsler : Specifying CA file enables TLS connection
+** https://github.com/chuesler/phpMQTT
+
+* Pekka Harjamäki : Added possibility to use client certificate to authentication.
+** https://github.com/McFizh/phpMQTT

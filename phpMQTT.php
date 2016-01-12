@@ -34,31 +34,42 @@
 /* phpMQTT */
 class phpMQTT {
 
-	private $socket; 			/* holds the socket	*/
-	private $msgid = 1;			/* counter for message id */
+	private $socket; 		/* holds the socket	*/
+	private $msgid = 1;		/* counter for message id */
 	public $keepalive = 10;		/* default keepalive timmer */
 	public $timesinceping;		/* host unix time, used to detect disconects */
 	public $topics = array(); 	/* used to store currently subscribed topics */
 	public $debug = false;		/* should output debug messages */
-	public $address;			/* broker address */
-	public $port;				/* broker port */
-	public $clientid;			/* client id sent to brocker */
-	public $will;				/* stores the will of the client */
-	private $username;			/* stores username */
-	private $password;			/* stores password */
+	public $address;		/* broker address */
+	public $port;			/* broker port */
+	public $clientid;		/* client id sent to brocker */
+	public $will;			/* stores the will of the client */
+	private $username;		/* stores username */
+	private $password;		/* stores password */
 
-	public $cafile;
+	public $cafile;			/* Stores CA file for verifying connection */
+	public $clientCrt;		/* Stores client CRT for authentication */
+	public $clientKey;		/* Stores client KEY for authentication */
 
-	function __construct($address, $port, $clientid, $cafile = NULL){
-		$this->broker($address, $port, $clientid, $cafile);
+	function __construct($address, $port, $clientid, $cafile = NULL, $clientCrt = NULL, $clientKey = NULL){
+		$this->broker($address, $port, $clientid, $cafile, $clientCrt, $clientKey);
 	}
 
 	/* sets the broker details */
-	function broker($address, $port, $clientid, $cafile = NULL){
+	function broker($address, $port, $clientid, $cafile = NULL, $clientCrt = NULL, $clientKey = NULL){
 		$this->address = $address;
 		$this->port = $port;
 		$this->clientid = $clientid;
 		$this->cafile = $cafile;
+
+		/* User must provide either CRT+KEY in same PEM file, or CRT + KEY in separate files */
+		if(!$clientCrt){
+			$this->clientCrt = NULL;
+			$this->clientKey = NULL;
+		} else {
+			$this->clientCrt = $clientCrt;
+			$this->clientKey = $clientKey;
+		}
 	}
 
 	function connect_auto($clean = true, $will = NULL, $username = NULL, $password = NULL){
@@ -76,16 +87,46 @@ class phpMQTT {
 		if($username) $this->username = $username;
 		if($password) $this->password = $password;
 
+		if ($this->cafile || $this->clientCrt) {
+			$socketContextOptions = [ "ssl" => [] ];
 
-		if ($this->cafile) {
-			$socketContext = stream_context_create(["ssl" => [
-				"verify_peer_name" => true,
-				"cafile" => $this->cafile
-				]]);
+			if ($this->cafile){
+
+				if(!file_exists($this->cafile)){
+					error_log("CA file not found\n");
+					return false;
+				}
+
+				$socketContextOptions["ssl"]["verify_peer_name"]=true;
+				$socketContextOptions["ssl"]["cafile"]=$this->cafile;
+			}
+
+			if ($this->clientCrt){
+
+				if(!file_exists($this->clientCrt)){
+					error_log("Client crt file not found\n");
+					return false;
+				}
+
+				$socketContextOptions["ssl"]["local_cert"]=$this->clientCrt;
+			}
+
+			if ($this->clientCrt && $this->clientKey){
+
+				if(!file_exists($this->clientKey)){
+					error_log("Client key file not found\n");
+					return false;
+				}
+
+				$socketContextOptions["ssl"]["local_pk"]=$this->clientKey;
+			}
+
+			$socketContext = stream_context_create($socketContextOptions);
 			$this->socket = stream_socket_client("tls://" . $this->address . ":" . $this->port, $errno, $errstr, 60, STREAM_CLIENT_CONNECT, $socketContext);
 		} else {
 			$this->socket = stream_socket_client("tcp://" . $this->address . ":" . $this->port, $errno, $errstr, 60, STREAM_CLIENT_CONNECT);
 		}
+
 
 		if (!$this->socket ) {
 		    if($this->debug) error_log("stream_socket_create() $errno, $errstr \n");
