@@ -8,6 +8,11 @@ Source: http://github.com/bluerhinos/phpMQTT
 
 ---
 
+For a rewrite of this library with MQTT 3.1.1 and TLS support, navigate here:
+https://github.com/mcfizh/libmqtt
+
+---
+
 ### Differences to original version
 
 * Christoph Hüsler : Specifying CA file enables TLS connection
